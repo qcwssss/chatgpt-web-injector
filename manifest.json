@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "ChatGPT Web Injector",
+  "description": "Send selected webpage content to ChatGPT with reusable prompt templates.",
+  "version": "0.1.0",
+  "permissions": ["contextMenus", "storage", "tabs", "scripting", "activeTab"],
+  "host_permissions": ["https://chatgpt.com/*"],
+  "background": {
+    "service_worker": "src/service_worker.js",
+    "type": "module"
+  },
+  "options_page": "options/options.html",
+  "action": {
+    "default_title": "ChatGPT Web Injector"
+  }
+}
