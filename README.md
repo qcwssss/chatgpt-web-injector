@@ -1,5 +1,9 @@
 # ChatGPT Web Injector
 
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4)
+![Status](https://img.shields.io/badge/status-v0.1--planning-blue)
+
 A local-first Chrome extension that sends selected webpage content into ChatGPT with reusable prompt templates.
 
 ## Why this exists
