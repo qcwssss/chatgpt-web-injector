@@ -1,4 +1,5 @@
 const MENU_ID = 'send-to-chatgpt';
+const CHATGPT_URL = 'https://chatgpt.com/';
 
 function createContextMenu() {
   chrome.contextMenus.create({
@@ -25,6 +26,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     tabId: tab?.id ?? null,
     timestamp: new Date().toISOString(),
   };
+
+  chrome.tabs.create({ url: CHATGPT_URL });
 
   console.log('[ChatGPT Web Injector] Context menu clicked:', payload);
 });
