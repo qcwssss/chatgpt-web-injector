@@ -1,5 +1,7 @@
 const TOOLTIP_ID = 'chatgpt-web-injector-tooltip';
 const SHOW_DELAY_MS = 100;
+const TOOLTIP_OFFSET = 6;
+const VIEWPORT_PADDING = 40;
 
 let showTimer = null;
 
@@ -17,38 +19,14 @@ function createTooltip(x, y) {
   btn.id = TOOLTIP_ID;
   btn.title = 'Send to ChatGPT';
   btn.setAttribute('aria-label', 'Send to ChatGPT');
+  btn.className = 'chatgpt-web-injector-tooltip-btn';
 
-  btn.style.cssText = [
-    'position:fixed',
-    `left:${x}px`,
-    `top:${y}px`,
-    'z-index:2147483646',
-    'width:32px',
-    'height:32px',
-    'border-radius:50%',
-    'border:none',
-    'background:#10a37f',
-    'cursor:pointer',
-    'display:flex',
-    'align-items:center',
-    'justify-content:center',
-    'box-shadow:0 2px 8px rgba(0,0,0,0.25)',
-    'padding:0',
-    'transition:transform 0.1s ease,box-shadow 0.1s ease',
-  ].join(';');
+  btn.style.left = `${x}px`;
+  btn.style.top = `${y}px`;
 
   // Simple "send" arrow SVG icon
+  // Simple "send" arrow SVG icon
   btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
-
-  btn.addEventListener('mouseenter', () => {
-    btn.style.transform = 'scale(1.1)';
-    btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
-  });
-
-  btn.addEventListener('mouseleave', () => {
-    btn.style.transform = '';
-    btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
-  });
 
   btn.addEventListener('mousedown', (e) => {
     // Prevent the click from clearing the selection before we read it
@@ -93,14 +71,14 @@ function getSelectionAnchorPosition() {
     return null;
   }
 
-  // Position just below and to the right of the selection end
-  const x = Math.min(rect.right + 6, window.innerWidth - 40);
-  const y = Math.max(rect.bottom + 6, 6);
+  // Position just below and to the right of the selection end, clamped to viewport
+  const x = Math.min(Math.max(rect.right + TOOLTIP_OFFSET, TOOLTIP_OFFSET), window.innerWidth - VIEWPORT_PADDING);
+  const y = Math.min(Math.max(rect.bottom + TOOLTIP_OFFSET, TOOLTIP_OFFSET), window.innerHeight - VIEWPORT_PADDING);
 
   return { x, y };
 }
 
-function handleMouseUp() {
+function processSelection() {
   clearTimeout(showTimer);
 
   showTimer = setTimeout(() => {
@@ -124,12 +102,14 @@ function handleMouseUp() {
 
 function handleMouseDown(e) {
   // If the click is on the tooltip itself, do nothing (mousedown handler on btn handles it)
-  if (e.target && e.target.id === TOOLTIP_ID) {
+  const clickedInsideTooltip = e.target?.closest?.(`#${TOOLTIP_ID}`);
+  if (clickedInsideTooltip) {
     return;
   }
   clearTimeout(showTimer);
   removeTooltip();
 }
 
-document.addEventListener('mouseup', handleMouseUp);
+document.addEventListener('mouseup', processSelection);
+document.addEventListener('selectionchange', processSelection);
 document.addEventListener('mousedown', handleMouseDown);

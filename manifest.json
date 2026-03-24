@@ -13,6 +13,7 @@
     {
       "matches": ["<all_urls>"],
       "js": ["src/selection_tooltip.js"],
+      "css": ["src/selection_tooltip.css"],
       "run_at": "document_idle"
     }
   ],
