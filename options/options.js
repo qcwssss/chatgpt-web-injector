@@ -151,10 +151,11 @@ async function onSave() {
     state.templates.push(newTpl);
   }
 
+  const isEditing = Boolean(editingId);
   await persist();
   closeEditor();
   renderList();
-  setStatus(editingId ? 'Template saved.' : 'Template added.');
+  setStatus(isEditing ? 'Template saved.' : 'Template added.');
 }
 
 addTplBtn.addEventListener('click', () => openEditor(null));

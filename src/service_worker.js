@@ -58,9 +58,10 @@ async function rebuildContextMenu() {
   const { templates, activeTemplateId } = await loadTemplates();
 
   if (templates.length <= 1) {
-    // Single template: simple top-level item
+    // Single template (or empty due to storage corruption): simple top-level item
+    const itemId = templates[0]?.id ?? activeTemplateId ?? 'default';
     chrome.contextMenus.create({
-      id: `${MENU_ITEM_PREFIX}${templates[0]?.id ?? activeTemplateId}`,
+      id: `${MENU_ITEM_PREFIX}${itemId}`,
       title: 'Send to ChatGPT',
       contexts: ['selection', 'page'],
     });

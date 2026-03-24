@@ -71,7 +71,7 @@ export async function saveTemplate(body) {
   if (idx >= 0) {
     templates[idx] = { ...templates[idx], body };
   } else {
-    templates.push({ id: activeTemplateId, name: 'Analyze', body });
+    templates.push({ id: activeTemplateId, name: 'Untitled', body });
   }
   await saveTemplates(templates, activeTemplateId);
 }
