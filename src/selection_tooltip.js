@@ -1,6 +1,6 @@
 const TOOLTIP_ID = 'chatgpt-web-injector-tooltip';
 const SHOW_DELAY_MS = 100;
-const TOOLTIP_OFFSET = 6;
+const TOOLTIP_MOUSE_OFFSET = 12;
 const VIEWPORT_PADDING = 40;
 const DEBUG = true;
 
@@ -106,61 +106,6 @@ function createTooltip(x, y) {
   }
 }
 
-function getSelectionAnchorPosition() {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
-    if (!lastPointerPosition) {
-      return null;
-    }
-    const x = Math.min(Math.max(lastPointerPosition.x + TOOLTIP_OFFSET, TOOLTIP_OFFSET), window.innerWidth - VIEWPORT_PADDING);
-    const y = Math.min(Math.max(lastPointerPosition.y + TOOLTIP_OFFSET, TOOLTIP_OFFSET), window.innerHeight - VIEWPORT_PADDING);
-    return { x, y };
-  }
-
-  const range = selection.getRangeAt(0);
-  const rect = range.getBoundingClientRect();
-
-  if (rect.width === 0 && rect.height === 0) {
-    if (!lastPointerPosition) {
-      return null;
-    }
-    const x = Math.min(Math.max(lastPointerPosition.x + TOOLTIP_OFFSET, TOOLTIP_OFFSET), window.innerWidth - VIEWPORT_PADDING);
-    const y = Math.min(Math.max(lastPointerPosition.y + TOOLTIP_OFFSET, TOOLTIP_OFFSET), window.innerHeight - VIEWPORT_PADDING);
-    return { x, y };
-  }
-
-  // Position just below and to the right of the selection end, clamped to viewport
-  const x = Math.min(Math.max(rect.right + TOOLTIP_OFFSET, TOOLTIP_OFFSET), window.innerWidth - VIEWPORT_PADDING);
-  const y = Math.min(Math.max(rect.bottom + TOOLTIP_OFFSET, TOOLTIP_OFFSET), window.innerHeight - VIEWPORT_PADDING);
-
-  return { x, y };
-}
-
-function processSelection() {
-  clearTimeout(showTimer);
-
-  showTimer = setTimeout(() => {
-    const text = getSelectedText();
-    log('Selection detected, text length:', text.length);
-
-    if (!text) {
-      log('No text selected, removing tooltip');
-      removeTooltip();
-      return;
-    }
-
-    const pos = getSelectionAnchorPosition();
-    if (!pos) {
-      log('WARNING: Could not determine selection position');
-      removeTooltip();
-      return;
-    }
-
-    log('Position calculated:', pos);
-    createTooltip(pos.x, pos.y);
-  }, SHOW_DELAY_MS);
-}
-
 function handleMouseDown(e) {
   // If the click is on the tooltip itself, do nothing (mousedown handler on btn handles it)
   const clickedInsideTooltip = e.target?.closest?.(`#${TOOLTIP_ID}`);
@@ -187,11 +132,3 @@ document.addEventListener('keyup', () => {
   processSelection();
 }, true);
 log('Event listeners registered (with capture phase)');
-
-// Extra debug: log selection change
-setInterval(() => {
-  const sel = window.getSelection();
-  if (sel && sel.toString().length > 0) {
-    log('Interval check: active selection detected, length:', sel.toString().length);
-  }
-}, 500);
