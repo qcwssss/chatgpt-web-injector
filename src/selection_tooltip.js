@@ -152,6 +152,11 @@ function handleMouseDown(e) {
 }
 
 function handleMouseUp(e) {
+  // If the mouseup is on the tooltip button itself, do not reposition or recreate it
+  const clickedInsideTooltip = e.target?.closest?.(`#${TOOLTIP_ID}`);
+  if (clickedInsideTooltip) {
+    return;
+  }
   log('Mouse up detected at', { x: e.clientX, y: e.clientY });
   lastPointerPosition = { x: e.clientX, y: e.clientY };
   processSelection();
