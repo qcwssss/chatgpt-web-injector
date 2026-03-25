@@ -1,145 +1,126 @@
 # AGENTS Guide
 
 ## Scope
-- This repository is a small Chrome Extension (Manifest V3) project.
-- Current implemented files are minimal: `manifest.json`, `src/service_worker.js`, `options/options.html`, and product docs.
-- `PRD.md` and `TECH_SPEC.md` describe planned components that do not all exist yet. Treat those docs as intent, not proof of implementation.
+- Chrome Extension (Manifest V3), plain JavaScript, no bundler, no TypeScript.
 - Make the smallest safe change that satisfies the current request.
+- Do not add permissions, dependencies, or files unless the task explicitly requires them.
 
 ## Repository Map
-- `manifest.json` - extension entrypoint, permissions, service worker, options page.
-- `src/service_worker.js` - current runtime logic for context menu registration and click payload logging.
-- `options/options.html` - placeholder options UI.
-- `README.md` - manual install and product overview.
-- `PRD.md` - product requirements and acceptance scenarios.
-- `TECH_SPEC.md` - planned architecture, runtime flow, and manual test checklist.
-
-## Source of Truth
-- Use actual code and `manifest.json` to determine current behavior.
-- Use `README.md`, `PRD.md`, and `TECH_SPEC.md` to understand intended behavior and acceptance expectations.
-- If docs and code disagree, call out the mismatch in your response instead of silently "fixing" both.
+```
+manifest.json               - Extension entrypoint, permissions, service worker, content scripts
+src/service_worker.js       - Background: context menu, message routing, open-tab + inject flow
+src/chatgpt_content.js      - Injected into chatgpt.com: text injection + auto-send logic
+src/selection_tooltip.js    - Content script on all pages: floating BOT button on text selection
+src/selection_tooltip.css   - Styles for the floating tooltip button
+src/storage.js              - chrome.storage.sync helpers: load/save/reset templates
+src/template.js             - Template rendering: DEFAULT_TEMPLATE, renderTemplate, getEffectiveTemplate
+options/options.html        - Options page UI
+options/options.js          - Options page logic: load/save/reset template via storage.js
+options/options.css         - Options page styles
+tests/template.test.js      - Unit tests for template.js
+tests/chatgpt_content.test.js - Unit tests for chatgpt_content.js (DOM-level via jsdom)
+package.json                - Test runner only (node --test), devDependency: jsdom
+```
 
 ## Build / Run / Test Commands
-- There is currently no `package.json`, lockfile, Makefile, CI workflow, linter config, formatter config, or automated test runner in this repository.
-- There is no build step today. The extension is loaded directly into Chrome as an unpacked extension.
-- Start manual verification with Chrome: open `chrome://extensions`, enable Developer mode, click `Load unpacked`, and select the repo root.
-- Reload the unpacked extension after code changes from the Extensions page.
-- Open the service worker console from the extension details page to inspect logs from `src/service_worker.js`.
-
-## Command Reference
-- `open -a "Google Chrome" chrome://extensions` - open the Extensions page on macOS.
-- `node --check src/service_worker.js` - optional syntax check for the service worker if Node is installed.
-- `python3 -m http.server` - optional static file server only if you need to inspect local HTML/CSS assets outside Chrome extension flow.
-- There is no repository-native lint command.
-- There is no repository-native automated test command.
-
-## Single Test Guidance
-- There is no configured unit or integration test harness, so there is no true "run one test" command yet.
-- For a single manual scenario, use the checklist in `TECH_SPEC.md` and validate one scenario at a time.
-- Example single-scenario manual test: load the unpacked extension, open any webpage, select text, right-click, choose `Send to ChatGPT`, and confirm the service worker logs the expected payload.
-- When documenting or adding tests later, prefer naming scenarios after the acceptance cases in `PRD.md` and `TECH_SPEC.md`.
+- **No build step.** Load the repo root as an unpacked extension directly in Chrome.
+- **Run all tests:** `npm test`
+- **Run a single test file:** `node --test tests/template.test.js`
+- **Syntax check any JS file:** `node --check src/service_worker.js`
+- **Open Extensions page (macOS):** `open -a "Google Chrome" chrome://extensions`
+- No lint command exists. No formatter config exists.
 
 ## Manual Verification Checklist
-- Confirm the extension loads without manifest errors.
-- Confirm the context menu item appears on page and selection contexts.
-- Confirm clicking the menu logs payload fields for `selectionText`, `pageTitle`, `pageUrl`, `tabId`, and `timestamp`.
-- Confirm the options page opens and renders the placeholder content.
-- If you implement planned features, also verify the matching acceptance scenarios from `PRD.md`.
+After any code change, reload the unpacked extension then verify:
+1. Extension loads with no errors in `chrome://extensions`.
+2. Select text on any page → BOT button appears near mouse cursor.
+3. Click BOT button → ChatGPT opens in a new tab, prompt is injected, message is sent automatically.
+4. Right-click selected text → "Send to ChatGPT" context menu item appears and works.
+5. Options page opens and saves/resets templates correctly.
+- **Important:** After reloading the extension, refresh any open tabs before testing content script behavior. Old tabs have an invalidated extension context and `chrome.runtime.sendMessage` will throw.
 
-## Current Architecture Notes
-- `manifest.json` declares MV3 with a module service worker.
-- Background logic currently lives only in `src/service_worker.js`.
-- The service worker currently creates the context menu and logs click payload data.
-- The options page exists but is still a placeholder.
-- Planned files like `content_script.js`, `options.js`, selector utilities, and fallback modal assets are documented but not yet present.
+## Architecture Notes
+- Service worker (`src/service_worker.js`) is an ES module (`"type": "module"` in manifest).
+- Content scripts (`selection_tooltip.js`) are NOT ES modules — they cannot use `import`. They run in an isolated world but share the page DOM.
+- `chatgpt_content.js` is injected programmatically via `chrome.scripting.executeScript` by the service worker — it is not declared as a content script in the manifest.
+- Event listeners in content scripts use **capture phase** (`true` as 3rd arg) for reliable detection on React/framework pages.
+- `chrome.runtime` is `undefined` or throws `Extension context invalidated` in orphaned content scripts (tab open before extension reload). Always guard with `chrome?.runtime?.sendMessage` and wrap calls in `try/catch`.
 
 ## Editing Rules
-- Preserve Manifest V3 compatibility.
-- Keep permissions minimal. Do not add new permissions or host permissions unless the task requires them.
-- If you add a new runtime file, wire it through `manifest.json` explicitly.
-- Keep implementation changes local; do not invent a build system or dependency stack unless the user asks for it.
-- Do not convert the project to TypeScript, a bundler, or a framework without explicit instruction.
+- Preserve MV3 compatibility. Do not use MV2 APIs.
+- Keep `permissions` and `host_permissions` minimal. Current: `contextMenus`, `storage`, `tabs`, `scripting`, `activeTab`, `https://chatgpt.com/*`, `<all_urls>`.
+- Any new JS file wired via manifest must physically exist before committing.
+- Do not introduce a bundler, TypeScript, or framework without explicit instruction.
+- After any manifest edit, re-verify all referenced paths exist.
 
 ## JavaScript Style
-- Use 2-space indentation.
-- Use semicolons.
-- Use single quotes in JavaScript unless escaping would be worse.
-- Prefer `const` by default; use `let` only when reassignment is required.
-- Keep stable identifiers in clear uppercase constants, e.g. `MENU_ID`.
-- Use camelCase for variables and functions.
-- Prefer small functions with one responsibility.
-- Use early returns for guard clauses.
-
-## HTML Style
-- Keep simple static HTML readable and lightly structured.
-- Use lowercase tags and standard double-quoted attributes.
-- Preserve the existing `<!doctype html>` and minimal head metadata style.
-- Avoid inline scripts unless the task is intentionally tiny and extension-safe.
-
-## JSON and Manifest Style
-- Keep `manifest.json` formatted with standard JSON double quotes.
-- Preserve existing key names and MV3-required structure.
-- Re-check relative paths after any manifest edit.
-- Do not add permissions, host permissions, or extension pages speculatively.
+- **Indentation:** 2 spaces.
+- **Semicolons:** always.
+- **Quotes:** single quotes in JS; double quotes in JSON/HTML attributes.
+- **Variables:** `const` by default; `let` only when reassignment is needed. No `var`.
+- **Constants:** `UPPER_SNAKE_CASE` for stable module-level identifiers (e.g. `TOOLTIP_ID`, `MENU_ID`).
+- **Functions/variables:** `camelCase` (e.g. `createTooltip`, `selectionText`).
+- **Files:** named by responsibility (`storage.js`, `template.js`, `chatgpt_content.js`).
+- **Functions:** small, single responsibility. Use early returns for guard clauses.
+- **Arrow functions:** preferred for callbacks and short helpers.
+- **Async:** `async/await` over raw Promise chains. Always `await` before accessing results.
 
 ## Imports and Modules
-- `src/service_worker.js` is treated as an ES module because `manifest.json` sets `"type": "module"` for the background worker.
-- Prefer relative ESM imports if you split logic into additional JS files.
-- Keep import paths explicit and local.
-- Avoid introducing dynamic imports or nonstandard module resolution unless there is a clear need.
-
-## Naming Conventions
-- Use descriptive camelCase for runtime values: `createContextMenu`, `payload`, `selectionText`.
-- Use uppercase snake case for stable constants only.
-- Match Chrome event naming to the platform API rather than inventing aliases.
-- Name new files by responsibility: `content_script.js`, `template.js`, `selectors.js`, `options.js`.
-
-## Types and Data Shape
-- This repo is plain JavaScript today; there is no TypeScript setup.
-- When passing structured data, keep object shapes explicit and stable.
-- Prefer constructing payload objects in one place so fields are easy to inspect.
-- If a value may be absent, follow the existing defensive style with optional chaining and nullish coalescing.
-- If richer typing becomes necessary, prefer JSDoc typedefs before introducing a full TS toolchain.
+- Service worker and `src/*.js` shared modules use ESM (`import`/`export`).
+- Content scripts declared in manifest cannot use `import` — keep them self-contained.
+- Use relative paths: `import { foo } from './template.js'`.
+- No dynamic imports unless there is a clear need.
 
 ## Error Handling and Logging
-- Favor defensive checks around Chrome APIs, tab data, storage reads, and DOM-dependent logic.
-- Keep failure handling user-safe and local-first.
-- Preserve or extend the documented fallback philosophy from `TECH_SPEC.md`: if automation fails, fall back to a manual recovery path.
-- Use clear log prefixes such as `[ChatGPT Web Injector]` so extension logs stay searchable.
-- Do not leave noisy debug logging in place unless it helps the current feature and is intentionally scoped.
+- Wrap all `chrome.runtime.sendMessage` calls in `try/catch` — it throws synchronously when the extension context is invalidated.
+- Handle Promise rejections from Chrome APIs (storage, tabs, scripting) with `.catch()` or `try/catch` in async functions.
+- Log prefix: `[ChatGPT Web Injector]` for all `console.log/warn/error` calls so logs are searchable.
+- Debug logging must be gated behind a `DEBUG` constant (default `false`). Never merge with `DEBUG = true`.
+- Fallback philosophy: if automation fails (injection, send button), show the manual copy modal — never silently fail.
+
+## Types and Data Shape
+- Plain JavaScript only. No TypeScript.
+- Use JSDoc `@param`/`@returns` for exported functions (see `storage.js` for examples).
+- Use optional chaining (`?.`) and nullish coalescing (`??`) for potentially absent values.
+- Keep payload objects explicit:
+  ```js
+  { selectionText, pageTitle, pageUrl }   // tooltip → service worker
+  { selection, title, url }               // service worker → renderTemplate
+  { id, name, body }                      // template entry shape
+  ```
+
+## CSS Style
+- Scope all extension styles under the unique ID `#chatgpt-web-injector-tooltip` to avoid colliding with host page styles.
+- Use `position: fixed` and high `z-index` (2147483646) for injected UI elements.
+- Keep `::after` pseudo-elements for icon/label content (avoids `chrome.runtime.getURL` which fails in content scripts).
 
 ## Chrome Extension Conventions
-- Verify any new file referenced by the manifest actually exists.
-- Keep `permissions` and `host_permissions` narrowly scoped.
-- When adding content scripts or injected logic, remember that target-site DOMs are brittle and should use defensive selectors.
-- Any storage-backed setting should default safely if the stored value is missing or invalid.
-- Changes that affect injection behavior should be checked against the failure and fallback notes in `TECH_SPEC.md`.
+- `chrome.storage.sync` for user settings (templates). Storage keys: `templates`, `activeTemplateId`.
+- `chrome.scripting.executeScript` requires the `scripting` permission and appropriate host permissions.
+- Always filter `chrome.tabs.onUpdated` by `tabId` to avoid acting on unrelated tab events.
+- `chrome.runtime.getURL()` does NOT work in content scripts — use pure CSS/inline assets instead.
+- `document.execCommand('insertText')` is required for React `contenteditable` inputs; setting `.value` or `.textContent` alone does not trigger React state updates.
 
-## Testing Strategy for Future Work
-- If you add automated tests, keep them lightweight and repo-local.
-- Prefer adding a documented command in this file and `README.md` when introducing test tooling.
-- Prefer one manual acceptance scenario per user-visible behavior until a real test harness exists.
-- If you add a single-test runner later, document the exact command pattern here immediately.
+## Testing
+- Test runner: Node built-in (`node --test`), no external framework.
+- DOM tests use `jsdom` (only devDependency).
+- Run all: `npm test`
+- Run one file: `node --test tests/template.test.js`
+- Tests live in `tests/`. Name files `<module>.test.js`.
+- Tests use `import` from `node:test` and `node:assert/strict`.
+- When adding tests, mock `chrome.*` APIs manually — no mocking library is used.
 
-## Documentation Rules
-- Keep `README.md` aligned with actual setup and implemented behavior.
-- Keep `PRD.md` and `TECH_SPEC.md` as planning/design docs unless the task specifically asks to update them.
-- If you implement a planned component from `TECH_SPEC.md`, note whether the repo has now caught up to the spec.
-
-## Git and Change Scope
-- Expect a possibly dirty working tree and avoid reverting unrelated user changes.
-- Keep file touch count low and prefer local edits over broad rewrites.
-- Do not add dependencies or generated files unless the task requires them.
-- When behavior changes, mention whether the change is implemented code, documentation only, or both.
-
-## Cursor / Copilot Rules
-- No `.cursor/rules/` directory exists at the time of writing.
-- No `.cursorrules` file exists at the time of writing.
-- No `.github/copilot-instructions.md` file exists at the time of writing.
-- If any of these files are added later, merge their instructions into future agent behavior and update this guide.
+## Git and PR Discipline
+- One PR per concern. Do not bundle unrelated fixes.
+- PR description must include `closes #N` for any issue it resolves (GitHub auto-closes on merge).
+- Squash merge to `main`. Delete branch after merge.
+- After merging, run `git checkout main && git pull origin main` to sync.
+- Two automated reviewers active: **CodeRabbit** and **Gemini Code Assist**.
+- Address `valid` and `high/medium` severity review comments before merging. Nits are optional.
 
 ## Good First Checks Before Finishing
-- Re-read `manifest.json` for path and permission accuracy.
-- Re-read `src/service_worker.js` for syntax and logging consistency.
-- Re-run the relevant manual scenario in Chrome when behavior changes.
-- State clearly whether your change affects current implementation, planned architecture, or both.
+- `node --check src/<file>.js` passes for every changed JS file.
+- `npm test` passes with no failures.
+- `manifest.json` paths all resolve to existing files.
+- `DEBUG = false` in `selection_tooltip.js` before any commit to main.
+- Reload extension + refresh test tab before manual verification.
