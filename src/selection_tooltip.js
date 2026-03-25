@@ -2,7 +2,7 @@ const TOOLTIP_ID = 'chatgpt-web-injector-tooltip';
 const SHOW_DELAY_MS = 100;
 const TOOLTIP_MOUSE_OFFSET = 12;
 const VIEWPORT_PADDING = 40;
-const DEBUG = true;
+const DEBUG = false;
 
 let showTimer = null;
 let lastPointerPosition = null;
