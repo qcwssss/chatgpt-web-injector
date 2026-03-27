@@ -14,6 +14,9 @@ function render() {
     const li = document.createElement('li');
     li.className = `template-item${isActive ? ' is-active' : ''}`;
     li.dataset.id = tpl.id;
+    li.setAttribute('role', 'option');
+    li.setAttribute('aria-selected', String(isActive));
+    li.setAttribute('tabindex', '0');
 
     const check = document.createElement('span');
     check.className = 'template-item__check';
@@ -29,20 +32,49 @@ function render() {
   }
 }
 
-listEl.addEventListener('click', async (e) => {
+async function selectTemplate(id) {
+  if (!id || id === state.activeTemplateId) {
+    return;
+  }
+
+  const prevId = state.activeTemplateId;
+  state.activeTemplateId = id;
+  render();
+
+  try {
+    await saveTemplates(state.templates, state.activeTemplateId);
+  } catch (err) {
+    console.error('[ChatGPT Web Injector] Failed to save active template:', err);
+    state.activeTemplateId = prevId;
+    render();
+  }
+}
+
+listEl.addEventListener('click', (e) => {
   const item = e.target.closest('.template-item');
   if (!item) {
     return;
   }
 
-  const { id } = item.dataset;
-  if (!id || id === state.activeTemplateId) {
+  selectTemplate(item.dataset.id).catch((err) => {
+    console.error('[ChatGPT Web Injector] Select template failed:', err);
+  });
+});
+
+listEl.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') {
     return;
   }
 
-  state.activeTemplateId = id;
-  await saveTemplates(state.templates, state.activeTemplateId);
-  render();
+  const item = e.target.closest('.template-item');
+  if (!item) {
+    return;
+  }
+
+  e.preventDefault();
+  selectTemplate(item.dataset.id).catch((err) => {
+    console.error('[ChatGPT Web Injector] Select template failed:', err);
+  });
 });
 
 manageBtn.addEventListener('click', () => {
