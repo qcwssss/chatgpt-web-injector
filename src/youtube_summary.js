@@ -222,13 +222,25 @@ async function waitForTranscriptDom() {
   return transcript;
 }
 
+async function waitForTranscriptButton() {
+  const startedAt = Date.now();
+  let transcriptButton = findTranscriptButton();
+
+  while (!transcriptButton && Date.now() - startedAt < TRANSCRIPT_DOM_WAIT_MS) {
+    await new Promise((resolve) => { setTimeout(resolve, TRANSCRIPT_DOM_POLL_MS); });
+    transcriptButton = findTranscriptButton();
+  }
+
+  return transcriptButton;
+}
+
 async function fetchTranscriptFromDom() {
   const visibleTranscript = readTranscriptFromDom();
   if (visibleTranscript) {
     return visibleTranscript;
   }
 
-  const transcriptButton = findTranscriptButton();
+  const transcriptButton = await waitForTranscriptButton();
   if (!transcriptButton) {
     throw new Error('transcript_dom_button_not_found');
   }
