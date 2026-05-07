@@ -3,11 +3,15 @@ const YOUTUBE_SUMMARY_STATUS_ID = 'chatgpt-web-injector-youtube-status';
 const YOUTUBE_WATCH_PATH = '/watch';
 const BUTTON_RETRY_MS = 750;
 const STATUS_TIMEOUT_MS = 2500;
+const MOUNT_DEBOUNCE_MS = 150;
+const OBSERVER_RETRY_MS = 500;
 const DEBUG = false;
 
 let lastUrl = '';
 let mountTimer = null;
 let statusTimer = null;
+let observerTimer = null;
+let observerRetryTimer = null;
 
 function log(...args) {
   if (DEBUG) {
@@ -53,43 +57,6 @@ function setButtonLoading(isLoading) {
   button.disabled = isLoading;
   button.classList.toggle('is-loading', isLoading);
   button.setAttribute('aria-busy', String(isLoading));
-}
-
-function decodeHtmlEntities(text) {
-  if (!text) {
-    return '';
-  }
-
-  const doc = new DOMParser().parseFromString(`<!doctype html><body>${text}`, 'text/html');
-  return doc.body.textContent ?? '';
-}
-
-function formatTimestamp(seconds) {
-  const totalSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
-  const minutes = Math.floor(totalSeconds / 60);
-  const remainingSeconds = totalSeconds % 60;
-
-  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
-}
-
-function parseTranscriptXml(xml) {
-  const captions = [];
-  const textNodePattern = /<text\b([^>]*)>([\s\S]*?)<\/text>/g;
-  let match = textNodePattern.exec(xml);
-
-  while (match) {
-    const [, attrs, rawText] = match;
-    const start = attrs.match(/\bstart="([^"]+)"/)?.[1] ?? '0';
-    const text = decodeHtmlEntities(rawText.replaceAll('\n', ' ')).trim();
-
-    if (text) {
-      captions.push(`[${formatTimestamp(start)}] ${text}`);
-    }
-
-    match = textNodePattern.exec(xml);
-  }
-
-  return captions.join('\n');
 }
 
 function extractBalancedJson(text, marker) {
@@ -180,10 +147,28 @@ function getActiveCaptionLanguageCode() {
     return '';
   }
 
+  const captionStorageKeys = [
+    'yt-player-caption-display-settings',
+    'yt-player-caption-sticky-language',
+    'yt-player-caption-language-preferences',
+  ];
+
+  for (const key of captionStorageKeys) {
+    const value = window.localStorage.getItem(key) || '';
+    const languageCode = value?.match(/"languageCode"\s*:\s*"([^"]+)"/)?.[1];
+    if (languageCode) {
+      return languageCode;
+    }
+  }
+
   for (let i = 0; i < window.localStorage.length; i += 1) {
     const key = window.localStorage.key(i);
-    const value = key ? window.localStorage.getItem(key) : '';
-    const languageCode = value?.match(/"languageCode"\s*:\s*"([^"]+)"/)?.[1];
+    if (!key?.startsWith('yt-player-caption')) {
+      continue;
+    }
+
+    const value = window.localStorage.getItem(key) || '';
+    const languageCode = value.match(/"languageCode"\s*:\s*"([^"]+)"/)?.[1];
     if (languageCode) {
       return languageCode;
     }
@@ -192,29 +177,18 @@ function getActiveCaptionLanguageCode() {
   return '';
 }
 
-function chooseCaptionTrack(tracks, activeLanguageCode) {
-  const readableTracks = tracks.filter((track) => track?.baseUrl);
-  if (readableTracks.length === 0) {
-    return null;
-  }
-
-  if (activeLanguageCode) {
-    const activeTrack = readableTracks.find((track) => track.languageCode === activeLanguageCode);
-    if (activeTrack) {
-      return activeTrack;
-    }
-  }
-
-  const browserLanguage = navigator.language?.split('-')[0];
-  return readableTracks.find((track) => track.isDefault) ??
-    readableTracks.find((track) => track.languageCode === browserLanguage) ??
-    readableTracks[0];
-}
-
 async function getTranscript() {
-  const playerResponse = await fetchCurrentPlayerResponse().catch(() => getPlayerResponseFromPageScripts());
+  const transcriptHelpers = window.ChatgptWebInjectorYoutubeTranscript;
+  if (!transcriptHelpers) {
+    throw new Error('transcript_helpers_unavailable');
+  }
+
+  const playerResponse = getPlayerResponseFromPageScripts() ||
+    await fetchCurrentPlayerResponse().catch(() => null);
   const tracks = getCaptionTracks(playerResponse);
-  const track = chooseCaptionTrack(tracks, getActiveCaptionLanguageCode());
+  const track = transcriptHelpers.chooseCaptionTrack(tracks, {
+    activeLanguageCode: getActiveCaptionLanguageCode(),
+  });
 
   if (!track) {
     throw new Error('no_caption_track');
@@ -225,7 +199,7 @@ async function getTranscript() {
     throw new Error('caption_fetch_failed');
   }
 
-  const transcript = parseTranscriptXml(await response.text());
+  const transcript = transcriptHelpers.parseTranscriptXml(await response.text());
   if (!transcript) {
     throw new Error('empty_transcript');
   }
@@ -311,14 +285,31 @@ function handleNavigation() {
   lastUrl = window.location.href;
   removeButton();
   mountButton();
+  observePlayerControls();
 }
 
 document.addEventListener('yt-navigate-finish', handleNavigation, true);
 document.addEventListener('yt-page-data-updated', handleNavigation, true);
 
 const observer = new MutationObserver(() => {
-  mountButton();
+  clearTimeout(observerTimer);
+  observerTimer = setTimeout(() => {
+    mountButton();
+  }, MOUNT_DEBOUNCE_MS);
 });
 
-observer.observe(document.documentElement, { childList: true, subtree: true });
+function observePlayerControls() {
+  clearTimeout(observerRetryTimer);
+  observer.disconnect();
+
+  const controls = document.querySelector('.ytp-chrome-controls');
+  if (!controls) {
+    observerRetryTimer = setTimeout(observePlayerControls, OBSERVER_RETRY_MS);
+    return;
+  }
+
+  observer.observe(controls, { childList: true, subtree: true });
+}
+
+observePlayerControls();
 handleNavigation();

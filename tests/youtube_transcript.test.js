@@ -1,12 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
-import {
-  chooseCaptionTrack,
-  parseTranscriptXml,
-} from '../src/youtube_transcript.js';
+function loadHelpers(options = {}) {
+  const context = {
+    DOMParser: options.DOMParser,
+    navigator: options.navigator ?? { language: 'en-US' },
+  };
+
+  context.globalThis = context;
+
+  const source = readFileSync(new URL('../src/youtube_transcript.js', import.meta.url), 'utf8');
+  vm.runInNewContext(source, context);
+
+  return context.ChatgptWebInjectorYoutubeTranscript;
+}
 
 test('chooseCaptionTrack prefers the active caption language', () => {
+  const { chooseCaptionTrack } = loadHelpers();
   const tracks = [
     { languageCode: 'en', baseUrl: 'https://example.com/en' },
     { languageCode: 'ko', baseUrl: 'https://example.com/ko' },
@@ -16,6 +28,7 @@ test('chooseCaptionTrack prefers the active caption language', () => {
 });
 
 test('chooseCaptionTrack falls back to default and then first readable track', () => {
+  const { chooseCaptionTrack } = loadHelpers();
   const tracks = [
     { languageCode: 'en', baseUrl: 'https://example.com/en' },
     { languageCode: 'ja', baseUrl: 'https://example.com/ja', isDefault: true },
@@ -28,7 +41,18 @@ test('chooseCaptionTrack falls back to default and then first readable track', (
   });
 });
 
+test('chooseCaptionTrack can fall back to the browser language before first track', () => {
+  const { chooseCaptionTrack } = loadHelpers({ navigator: { language: 'ko-KR' } });
+  const tracks = [
+    { languageCode: 'en', baseUrl: 'https://example.com/en' },
+    { languageCode: 'ko', baseUrl: 'https://example.com/ko' },
+  ];
+
+  assert.deepEqual(chooseCaptionTrack(tracks, { activeLanguageCode: 'de' }), tracks[1]);
+});
+
 test('parseTranscriptXml decodes captions into timestamped text', () => {
+  const { parseTranscriptXml } = loadHelpers();
   const xml = `
     <transcript>
       <text start="0.4" dur="1.2">Hello &amp; welcome</text>
