@@ -128,6 +128,27 @@ function getPlayerResponseFromPageScripts() {
   return null;
 }
 
+function getInnertubeValue(name) {
+  const pattern = new RegExp(`"${name}"\\s*:\\s*"([^"]+)"`);
+  for (const script of document.scripts) {
+    const match = (script.textContent || '').match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+  return '';
+}
+
+function getTranscriptParamsFromPageScripts() {
+  for (const script of document.scripts) {
+    const match = (script.textContent || '').match(/"getTranscriptEndpoint"\s*:\s*\{"params"\s*:\s*"([^"]+)"/);
+    if (match) {
+      return match[1];
+    }
+  }
+  return '';
+}
+
 async function fetchCurrentPlayerResponse() {
   const response = await fetch(window.location.href, { credentials: 'include' });
   if (!response.ok) {
@@ -135,6 +156,46 @@ async function fetchCurrentPlayerResponse() {
   }
 
   return getPlayerResponseFromHtml(await response.text());
+}
+
+async function fetchInnertubeTranscript() {
+  const key = getInnertubeValue('INNERTUBE_API_KEY');
+  const clientVersion = getInnertubeValue('INNERTUBE_CLIENT_VERSION');
+  const visitorData = getInnertubeValue('VISITOR_DATA');
+  const hl = getInnertubeValue('HL') || document.documentElement.lang || 'en';
+  const gl = getInnertubeValue('GL') || 'US';
+  const params = getTranscriptParamsFromPageScripts();
+
+  if (!key || !clientVersion || !params) {
+    return '';
+  }
+
+  const response = await fetch(`https://www.youtube.com/youtubei/v1/get_transcript?key=${key}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      context: {
+        client: {
+          clientName: 'WEB',
+          clientVersion,
+          gl,
+          hl,
+          visitorData,
+        },
+      },
+      params,
+    }),
+  });
+
+  if (!response.ok) {
+    return '';
+  }
+
+  return window.ChatgptWebInjectorYoutubeTranscript
+    .parseInnertubeTranscriptResponse(await response.json());
 }
 
 function getCaptionTracks(playerResponse) {
@@ -201,11 +262,12 @@ async function getTranscript() {
   }
 
   const transcript = transcriptHelpers.parseTranscript(await response.text());
-  if (!transcript) {
+  const fallbackTranscript = transcript || await fetchInnertubeTranscript();
+  if (!fallbackTranscript) {
     throw new Error('empty_transcript');
   }
 
-  return transcript;
+  return fallbackTranscript;
 }
 
 async function sendYoutubeSummary() {

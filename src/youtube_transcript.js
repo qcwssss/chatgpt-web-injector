@@ -141,6 +141,58 @@
     return captions.join('\n');
   }
 
+  function textFromRuns(textObject) {
+    if (Array.isArray(textObject?.runs)) {
+      return textObject.runs.map((run) => run?.text ?? '').join('').trim();
+    }
+    return (textObject?.simpleText ?? '').trim();
+  }
+
+  function walkObject(value, visitor) {
+    if (!value || typeof value !== 'object') {
+      return;
+    }
+
+    visitor(value);
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        walkObject(item, visitor);
+      }
+      return;
+    }
+
+    for (const item of Object.values(value)) {
+      walkObject(item, visitor);
+    }
+  }
+
+  function parseInnertubeTranscriptResponse(response) {
+    const segments = [];
+
+    walkObject(response, (node) => {
+      const segment = node.transcriptSegmentRenderer;
+      if (!segment) {
+        return;
+      }
+
+      const text = textFromRuns(segment.snippet);
+      if (!text) {
+        return;
+      }
+
+      segments.push({
+        startMs: Number(segment.startMs) || 0,
+        text,
+      });
+    });
+
+    return segments
+      .sort((a, b) => a.startMs - b.startMs)
+      .map((segment) => `[${formatTimestamp(segment.startMs / 1000)}] ${segment.text}`)
+      .join('\n');
+  }
+
   function parseTranscript(text) {
     if (!text || typeof text !== 'string') {
       return '';
@@ -167,6 +219,7 @@
   globalScope.ChatgptWebInjectorYoutubeTranscript = {
     buildCaptionUrl,
     chooseCaptionTrack,
+    parseInnertubeTranscriptResponse,
     parseTranscript,
     parseTranscriptXml,
   };

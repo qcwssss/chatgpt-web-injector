@@ -99,3 +99,46 @@ test('buildCaptionUrl requests json3 format without dropping existing params', (
     'https://example.com/api?lang=en&fmt=json3'
   );
 });
+
+test('parseInnertubeTranscriptResponse decodes transcript panel segments', () => {
+  const { parseInnertubeTranscriptResponse } = loadHelpers();
+  const response = {
+    actions: [
+      {
+        updateEngagementPanelAction: {
+          content: {
+            transcriptRenderer: {
+              content: {
+                transcriptSearchPanelRenderer: {
+                  body: {
+                    transcriptSegmentListRenderer: {
+                      initialSegments: [
+                        {
+                          transcriptSegmentRenderer: {
+                            startMs: '400',
+                            snippet: { runs: [{ text: 'Hello ' }, { text: 'world' }] },
+                          },
+                        },
+                        {
+                          transcriptSegmentRenderer: {
+                            startMs: '65200',
+                            snippet: { simpleText: 'Second line' },
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    ],
+  };
+
+  assert.equal(
+    parseInnertubeTranscriptResponse(response),
+    '[00:00] Hello world\n[01:05] Second line'
+  );
+});
