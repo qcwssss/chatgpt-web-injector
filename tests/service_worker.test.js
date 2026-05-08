@@ -19,6 +19,9 @@ globalThis.chrome = {
     onChanged: { addListener() {} },
   },
   tabs: {
+    async create() {
+      return { id: 123, status: 'complete' };
+    },
     async get(tabId) {
       return { id: tabId, status: 'complete' };
     },
@@ -27,9 +30,18 @@ globalThis.chrome = {
       removeListener() {},
     },
   },
+  scripting: {
+    async executeScript() {
+      return [{ result: { ok: true } }];
+    },
+  },
 };
 
-const { getChatgptTargetUrl, waitForTabComplete } = await import('../src/service_worker.js');
+const {
+  executeChatgptSendFlow,
+  getChatgptTargetUrl,
+  waitForTabComplete,
+} = await import('../src/service_worker.js');
 
 after(() => {
   globalThis.chrome = previousChrome;
@@ -42,4 +54,25 @@ test('getChatgptTargetUrl returns temporary URL only when enabled', () => {
 
 test('waitForTabComplete resolves when the tab is already complete', async () => {
   await waitForTabComplete(123, 1);
+});
+
+test('executeChatgptSendFlow retries when ChatGPT replaces the main frame', async () => {
+  let attempts = 0;
+  globalThis.chrome.scripting.executeScript = async () => {
+    attempts += 1;
+    if (attempts === 1) {
+      throw new Error('Frame with ID 0 was removed.');
+    }
+    return [{ result: { ok: true } }];
+  };
+
+  const result = await executeChatgptSendFlow(123, 'hello', {
+    maxAttempts: 1,
+    intervalMs: 1,
+    injectAttempts: 2,
+    injectRetryMs: 1,
+  });
+
+  assert.equal(attempts, 2);
+  assert.deepEqual(result, { ok: true });
 });

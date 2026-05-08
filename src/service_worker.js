@@ -12,6 +12,8 @@ const MENU_ITEM_PREFIX = 'send-to-chatgpt-tpl-';
 const CHATGPT_URL = 'https://chatgpt.com/';
 const CHATGPT_TEMPORARY_URL = 'https://chatgpt.com/?temporary-chat=true';
 const TAB_WAIT_TIMEOUT_MS = 15000;
+const INJECT_ATTEMPTS = 3;
+const INJECT_RETRY_MS = 750;
 
 let isMenuRebuildRunning = false;
 let hasPendingMenuRebuild = false;
@@ -61,6 +63,40 @@ export function waitForTabComplete(tabId, timeoutMs) {
   });
 }
 
+function isTransientFrameError(error) {
+  return /frame with id \d+ was removed/i.test(error?.message || '');
+}
+
+export async function executeChatgptSendFlow(tabId, prompt, options = {}) {
+  const injectAttempts = Number.isFinite(options.injectAttempts) ? options.injectAttempts : INJECT_ATTEMPTS;
+  const injectRetryMs = Number.isFinite(options.injectRetryMs) ? options.injectRetryMs : INJECT_RETRY_MS;
+
+  for (let attempt = 1; attempt <= injectAttempts; attempt += 1) {
+    try {
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: runChatgptSendFlow,
+        args: [prompt, {
+          maxAttempts: options.maxAttempts,
+          intervalMs: options.intervalMs,
+          preferTemporaryChat: options.preferTemporaryChat === true,
+        }],
+      });
+
+      return result?.result || result;
+    } catch (error) {
+      if (!isTransientFrameError(error) || attempt === injectAttempts) {
+        throw error;
+      }
+
+      await waitForTabComplete(tabId, TAB_WAIT_TIMEOUT_MS);
+      await new Promise((resolve) => { setTimeout(resolve, injectRetryMs); });
+    }
+  }
+
+  throw new Error('chatgpt_injection_failed');
+}
+
 async function sendWithTemplate(templateId, selectionText, tab) {
   const payload = {
     selection: selectionText || '',
@@ -78,17 +114,13 @@ async function sendPromptToChatgpt(prompt, options = {}) {
   const targetTab = await chrome.tabs.create({ url: targetUrl, active: true });
   await waitForTabComplete(targetTab.id, TAB_WAIT_TIMEOUT_MS);
 
-  const [result] = await chrome.scripting.executeScript({
-    target: { tabId: targetTab.id },
-    func: runChatgptSendFlow,
-    args: [prompt, {
-      maxAttempts: 24,
-      intervalMs: 250,
-      preferTemporaryChat: options.preferTemporaryChat === true,
-    }],
+  const result = await executeChatgptSendFlow(targetTab.id, prompt, {
+    maxAttempts: 24,
+    intervalMs: 250,
+    preferTemporaryChat: options.preferTemporaryChat === true,
   });
 
-  console.log('[ChatGPT Web Injector] Runtime send result:', result?.result || result);
+  console.log('[ChatGPT Web Injector] Runtime send result:', result);
 }
 
 async function sendYoutubeSummary(payload) {
