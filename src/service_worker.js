@@ -59,7 +59,15 @@ export function waitForTabComplete(tabId, timeoutMs) {
       if (tab?.status === 'complete') {
         finish();
       }
-    }).catch(() => {});
+    }).catch((error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeoutId);
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      reject(error);
+    });
   });
 }
 

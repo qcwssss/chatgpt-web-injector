@@ -112,14 +112,24 @@ export async function runChatgptSendFlow(prompt, options = {}) {
   }
 
   async function enableTemporaryChat() {
-    const labelPattern = /temporary chat|temporary|临时|臨時|暫時/i;
-    const controls = Array.from(document.querySelectorAll('button, [role="button"], a'));
+    const labelPattern = /^(temporary(?: chat)?|临时(?:聊天)?|臨時(?:聊天)?|暫時(?:聊天)?)$/i;
+    const controls = Array.from(document.querySelectorAll('button, [role="button"]'));
     const control = controls.find((candidate) => {
-      const label = [
-        candidate.getAttribute('aria-label') || '',
-        candidate.getAttribute('title') || '',
-        candidate.textContent || '',
-      ].join(' ');
+      if (candidate.tagName === 'A' || candidate.hasAttribute('href') || candidate.getAttribute('aria-hidden') === 'true') {
+        return false;
+      }
+
+      const style = window.getComputedStyle?.(candidate);
+      if (style?.display === 'none' || style?.visibility === 'hidden') {
+        return false;
+      }
+
+      const label = (
+        candidate.getAttribute('aria-label') ??
+        candidate.getAttribute('title') ??
+        candidate.textContent ??
+        ''
+      ).trim();
 
       return labelPattern.test(label);
     });

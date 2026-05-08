@@ -156,7 +156,7 @@ function getTranscriptParamsFromPageScripts() {
 function normalizeTimestamp(timestamp) {
   const parts = timestamp.trim().split(':');
   if (parts.length >= 2) {
-    return parts.slice(-2).map((part) => part.padStart(2, '0')).join(':');
+    return parts.map((part) => part.padStart(2, '0')).join(':');
   }
   return '00:00';
 }

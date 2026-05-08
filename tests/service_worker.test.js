@@ -56,6 +56,19 @@ test('waitForTabComplete resolves when the tab is already complete', async () =>
   await waitForTabComplete(123, 1);
 });
 
+test('waitForTabComplete rejects when the tab cannot be read', async () => {
+  const originalGet = globalThis.chrome.tabs.get;
+  globalThis.chrome.tabs.get = async () => {
+    throw new Error('No tab with id: 456');
+  };
+
+  try {
+    await assert.rejects(() => waitForTabComplete(456, 100), /No tab with id: 456/);
+  } finally {
+    globalThis.chrome.tabs.get = originalGet;
+  }
+});
+
 test('executeChatgptSendFlow retries when ChatGPT replaces the main frame', async () => {
   let attempts = 0;
   globalThis.chrome.scripting.executeScript = async () => {
