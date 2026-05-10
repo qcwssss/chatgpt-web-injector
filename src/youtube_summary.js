@@ -162,7 +162,7 @@ function normalizeTimestamp(timestamp) {
 }
 
 function isElementVisible(element) {
-  if (!element) {
+  if (!element || !element.isConnected) {
     return false;
   }
 
@@ -269,7 +269,8 @@ function findTranscriptButton() {
   return buttons.find((button) => {
     if (
       button.id === YOUTUBE_SUMMARY_BUTTON_ID ||
-      button.id === YOUTUBE_TRANSCRIPT_BUTTON_ID
+      button.id === YOUTUBE_TRANSCRIPT_BUTTON_ID ||
+      !isElementVisible(button)
     ) {
       return false;
     }
@@ -282,8 +283,7 @@ function findTranscriptButton() {
   }) || null;
 }
 
-function findTranscriptCloseButton() {
-  const panel = findTranscriptPanel();
+function findTranscriptCloseButton(panel = findTranscriptPanel()) {
   if (!panel) {
     return null;
   }
@@ -359,8 +359,9 @@ async function fetchTranscriptFromDom() {
 }
 
 async function toggleTranscriptPanel() {
-  if (findVisibleTranscriptSegment()) {
-    const closeButton = findTranscriptCloseButton();
+  const panel = findTranscriptPanel();
+  if (panel) {
+    const closeButton = findTranscriptCloseButton(panel);
     if (!closeButton) {
       showStatus('Transcript unavailable');
       return;

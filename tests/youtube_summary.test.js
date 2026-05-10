@@ -91,6 +91,7 @@ test('YouTube transcript panel button opens when stale transcript DOM is hidden'
             <span class="segment-timestamp">0:01</span>
             <span class="segment-text">Stale closed transcript</span>
           </ytd-transcript-segment-renderer>
+          <button aria-label="Show transcript">Hidden show transcript</button>
         </ytd-engagement-panel-section-list-renderer>
         <button aria-label="Show transcript">Show transcript</button>
       </body>
@@ -101,7 +102,11 @@ test('YouTube transcript panel button opens when stale transcript DOM is hidden'
   });
 
   let nativeTranscriptClicked = false;
-  dom.window.document.querySelector('[aria-label="Show transcript"]').addEventListener('click', () => {
+  let hiddenTranscriptClicked = false;
+  dom.window.document.querySelector('ytd-engagement-panel-section-list-renderer button').addEventListener('click', () => {
+    hiddenTranscriptClicked = true;
+  });
+  dom.window.document.body.lastElementChild.addEventListener('click', () => {
     nativeTranscriptClicked = true;
   });
 
@@ -112,6 +117,7 @@ test('YouTube transcript panel button opens when stale transcript DOM is hidden'
   await Promise.resolve();
 
   assert.equal(nativeTranscriptClicked, true);
+  assert.equal(hiddenTranscriptClicked, false);
   assert.equal(dom.window.document.getElementById('chatgpt-web-injector-youtube-status'), null);
 });
 
@@ -149,6 +155,54 @@ test('YouTube transcript panel button closes an open transcript panel', async ()
   await Promise.resolve();
 
   assert.equal(closeClicked, true);
+  assert.equal(dom.window.document.getElementById('chatgpt-web-injector-youtube-status'), null);
+});
+
+test('YouTube transcript panel button reopens after closing the transcript panel', async () => {
+  const dom = new JSDOM(`
+    <html>
+      <body>
+        <div class="ytp-chrome-controls">
+          <button class="ytp-subtitles-button" aria-pressed="false">CC</button>
+        </div>
+        <ytd-engagement-panel-section-list-renderer>
+          <button aria-label="Close transcript">Close</button>
+          <ytd-transcript-segment-renderer>
+            <span class="segment-timestamp">0:01</span>
+            <span class="segment-text">Open transcript</span>
+          </ytd-transcript-segment-renderer>
+        </ytd-engagement-panel-section-list-renderer>
+        <button aria-label="Show transcript">Show transcript</button>
+      </body>
+    </html>
+  `, {
+    runScripts: 'outside-only',
+    url: 'https://www.youtube.com/watch?v=test123',
+  });
+
+  const panel = dom.window.document.querySelector('ytd-engagement-panel-section-list-renderer');
+  let closeClicked = false;
+  let showClicked = false;
+
+  dom.window.document.querySelector('[aria-label="Close transcript"]').addEventListener('click', () => {
+    closeClicked = true;
+    panel.setAttribute('visibility', 'ENGAGEMENT_PANEL_VISIBILITY_HIDDEN');
+  });
+  dom.window.document.body.lastElementChild.addEventListener('click', () => {
+    showClicked = true;
+    panel.setAttribute('visibility', 'ENGAGEMENT_PANEL_VISIBILITY_EXPANDED');
+  });
+
+  loadYoutubeSummary(dom);
+
+  const button = dom.window.document.getElementById('chatgpt-web-injector-youtube-transcript');
+  button.click();
+  await Promise.resolve();
+  button.click();
+  await Promise.resolve();
+
+  assert.equal(closeClicked, true);
+  assert.equal(showClicked, true);
   assert.equal(dom.window.document.getElementById('chatgpt-web-injector-youtube-status'), null);
 });
 
