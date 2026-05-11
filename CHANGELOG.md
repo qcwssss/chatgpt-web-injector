@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.0.12](https://github.com/qcwssss/chatgpt-web-injector/compare/v0.0.11...v0.0.12) (2026-05-13)
+
+### Bug Fixes
+
+* Toggle the native YouTube transcript panel from the TR button.
+* Ignore hidden or stale YouTube transcript controls when reopening the transcript panel.
+* Restore hidden native YouTube transcript fallback for TR and AI summary actions.
+
+### Design
+
+* Refresh the YouTube injected control styling.
+* Replace extension icons with the new GPT video transcribe logo.
+
 ## [0.0.11](https://github.com/qcwssss/chatgpt-web-injector/compare/v0.0.10...v0.0.11) (2026-05-08)
 
 ### Features
