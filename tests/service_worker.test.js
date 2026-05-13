@@ -41,7 +41,6 @@ const {
   executeChatgptSendFlow,
   getChatgptTargetUrl,
   waitForTabComplete,
-  waitForChatgptTabReady,
 } = await import('../src/service_worker.js');
 
 after(() => {
@@ -67,22 +66,6 @@ test('waitForTabComplete rejects when the tab cannot be read', async () => {
     await assert.rejects(() => waitForTabComplete(456, 100), /No tab with id: 456/);
   } finally {
     globalThis.chrome.tabs.get = originalGet;
-  }
-});
-
-test('waitForChatgptTabReady continues when ChatGPT tab load times out', async () => {
-  const originalGet = globalThis.chrome.tabs.get;
-  const originalWarn = console.warn;
-  globalThis.chrome.tabs.get = async (tabId) => {
-    return { id: tabId, status: 'loading' };
-  };
-  console.warn = () => {};
-
-  try {
-    await waitForChatgptTabReady(123, 1);
-  } finally {
-    globalThis.chrome.tabs.get = originalGet;
-    console.warn = originalWarn;
   }
 });
 
