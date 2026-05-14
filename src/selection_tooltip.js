@@ -47,9 +47,14 @@ function createTooltip(x, y) {
 
   const btn = document.createElement('button');
   btn.id = TOOLTIP_ID;
-  btn.title = 'Send to ChatGPT';
-  btn.setAttribute('aria-label', 'Send to ChatGPT');
+  btn.type = 'button';
+  btn.title = 'Send selection to ChatGPT';
+  btn.setAttribute('aria-label', 'Send selection to ChatGPT');
   btn.className = 'chatgpt-web-injector-tooltip-btn';
+  btn.innerHTML = `
+    <span class="chatgpt-web-injector-tooltip-icon" aria-hidden="true">✦</span>
+    <span class="chatgpt-web-injector-tooltip-label">Ask ChatGPT</span>
+  `;
 
   btn.style.left = `${x}px`;
   btn.style.top = `${y}px`;
