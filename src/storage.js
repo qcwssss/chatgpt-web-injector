@@ -132,11 +132,21 @@ export async function saveYoutubeSummaryTemporaryChatEnabled(enabled) {
 }
 
 export async function loadSelectionTooltipEnabled() {
-  const data = await chrome.storage.sync.get([SHOW_SELECTION_TOOLTIP_KEY]);
-  return data[SHOW_SELECTION_TOOLTIP_KEY] === true;
+  try {
+    const data = await chrome.storage.sync.get([SHOW_SELECTION_TOOLTIP_KEY]);
+    return data?.[SHOW_SELECTION_TOOLTIP_KEY] === true;
+  } catch (err) {
+    console.error('[ChatGPT Web Injector] Failed to load selection tooltip preference:', err);
+    return false;
+  }
 }
 
 export async function saveSelectionTooltipEnabled(enabled) {
-  await chrome.storage.sync.set({ [SHOW_SELECTION_TOOLTIP_KEY]: enabled === true });
+  try {
+    await chrome.storage.sync.set({ [SHOW_SELECTION_TOOLTIP_KEY]: enabled === true });
+  } catch (err) {
+    console.error('[ChatGPT Web Injector] Failed to save selection tooltip preference:', err);
+    throw err;
+  }
 }
 

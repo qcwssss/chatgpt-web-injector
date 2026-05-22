@@ -225,16 +225,17 @@ youtubeTemporaryChatInput.addEventListener('change', () => {
   });
 });
 
-showSelectionTooltipInput.addEventListener('change', () => {
+showSelectionTooltipInput.addEventListener('change', async () => {
   const nextChecked = showSelectionTooltipInput.checked;
 
-  saveSelectionTooltipEnabled(nextChecked).then(() => {
+  try {
+    await saveSelectionTooltipEnabled(nextChecked);
     setStatus('Settings saved.');
-  }).catch((err) => {
+  } catch (err) {
     showSelectionTooltipInput.checked = !nextChecked;
     console.error('[ChatGPT Web Injector] Tooltip preference save failed:', err);
     setStatus('Save failed. Please try again.');
-  });
+  }
 });
 
 async function init() {
