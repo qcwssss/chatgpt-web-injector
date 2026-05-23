@@ -5,6 +5,7 @@ const TEMPLATES_KEY = 'templates';
 const ACTIVE_ID_KEY = 'activeTemplateId';
 const YOUTUBE_SUMMARY_TEMPLATE_KEY = 'youtubeSummaryTemplate';
 const YOUTUBE_SUMMARY_TEMPORARY_CHAT_KEY = 'youtubeSummaryTemporaryChatEnabled';
+const SHOW_SELECTION_TOOLTIP_KEY = 'showSelectionTooltip';
 
 export const DEFAULT_YOUTUBE_SUMMARY_TEMPLATE = `You are a precise video summary assistant.
 
@@ -129,3 +130,23 @@ export async function loadYoutubeSummaryTemporaryChatEnabled() {
 export async function saveYoutubeSummaryTemporaryChatEnabled(enabled) {
   await chrome.storage.sync.set({ [YOUTUBE_SUMMARY_TEMPORARY_CHAT_KEY]: enabled === true });
 }
+
+export async function loadSelectionTooltipEnabled() {
+  try {
+    const data = await chrome.storage.sync.get([SHOW_SELECTION_TOOLTIP_KEY]);
+    return data?.[SHOW_SELECTION_TOOLTIP_KEY] === true;
+  } catch (err) {
+    console.error('[ChatGPT Web Injector] Failed to load selection tooltip preference:', err);
+    return false;
+  }
+}
+
+export async function saveSelectionTooltipEnabled(enabled) {
+  try {
+    await chrome.storage.sync.set({ [SHOW_SELECTION_TOOLTIP_KEY]: enabled === true });
+  } catch (err) {
+    console.error('[ChatGPT Web Injector] Failed to save selection tooltip preference:', err);
+    throw err;
+  }
+}
+

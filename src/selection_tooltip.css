@@ -1,57 +1,41 @@
 #chatgpt-web-injector-tooltip {
   position: fixed;
   z-index: 2147483646;
-  width: 74px;
-  height: 36px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: linear-gradient(135deg, #111827 0%, #1f2937 56%, #0f766e 100%);
-  color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #1e1e1e;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
   box-shadow:
-    0 8px 24px rgba(15, 23, 42, 0.26),
-    0 2px 8px rgba(15, 23, 42, 0.18);
-  padding: 0 10px 0 8px;
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+  padding: 0;
   transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
 }
 
-#chatgpt-web-injector-tooltip::before {
-  content: 'AI';
+#chatgpt-web-injector-tooltip::after {
+  content: '';
   width: 22px;
   height: 22px;
-  border-radius: 50%;
-  background: #ffffff;
-  color: #0f766e;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-
-#chatgpt-web-injector-tooltip::after {
-  content: 'Ask';
-  letter-spacing: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'%3E%3Cpath d='M11.608 2.051a.883.883 0 0 1 1.569 0l1.968 4.398c.328.733.916 1.321 1.649 1.649l4.398 1.968a.883.883 0 0 1 0 1.569l-4.398 1.968a3.176 3.176 0 0 0-1.649 1.649l-1.968 4.398a.883.883 0 0 1-1.569 0l-1.968-4.398a3.176 3.176 0 0 0-1.649-1.649l-4.398-1.968a.883.883 0 0 1 0-1.569l4.398-1.968c.733-.328 1.321-.916 1.649-1.649l1.968-4.398Z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 #chatgpt-web-injector-tooltip:hover {
-  transform: translateY(-1px) scale(1.03);
-  filter: brightness(1.06);
+  transform: translateY(-1px) scale(1.05);
+  filter: brightness(1.1);
   box-shadow:
-    0 12px 28px rgba(15, 23, 42, 0.3),
-    0 4px 12px rgba(15, 23, 42, 0.2);
+    0 12px 28px rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 #chatgpt-web-injector-tooltip:focus-visible {
-  outline: 3px solid rgba(16, 185, 129, 0.35);
+  outline: 2px solid rgba(16, 185, 129, 0.4);
   outline-offset: 2px;
 }
