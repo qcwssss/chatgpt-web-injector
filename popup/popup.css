@@ -172,3 +172,8 @@ h1 {
   transform: translateX(14px);
 }
 
+/* 键盘聚焦状态下的自定义焦点指示器 */
+.switch input:focus-visible + .slider {
+  box-shadow: 0 0 0 2px rgba(0, 112, 243, 0.4);
+}
+
