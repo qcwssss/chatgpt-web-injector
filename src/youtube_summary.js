@@ -26,6 +26,7 @@ let observerTimer = null;
 let observerRetryTimer = null;
 let latestCaptionCheckId = 0;
 const noCaptionUrls = new Set();
+const NO_CAPTION_CACHE_LIMIT = 100;
 
 function log(...args) {
   if (DEBUG) {
@@ -558,15 +559,21 @@ function getCaptionTracks(playerResponse) {
 
 /**
  * 轮询等待 playerResponse 中的 captionTracks 数据，最多等待 TRANSCRIPT_DOM_WAIT_MS 毫秒。
+ * @param {string} videoId - 当前视频的 ID，用于校验 playerResponse 是否匹配当前视频
  * 返回 true 表示视频有可用字幕；返回 false 表示无字幕（直播/无字幕视频）。
  */
-async function hasCaptionTracks() {
+async function hasCaptionTracks(videoId) {
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < TRANSCRIPT_DOM_WAIT_MS) {
+    // SPA 路由切换时提前终止轮询，避免无效 CPU 消耗
+    const currentVideoId = new URLSearchParams(window.location.search).get('v');
+    if (videoId !== currentVideoId) {
+      return false;
+    }
     const playerResponse = getPlayerResponseFromPageScripts();
-    if (playerResponse) {
-      // playerResponse 已解析，直接判断 captionTracks
+    // 校验 playerResponse 的 videoId 是否匹配，避免读到上一个视频的过期数据
+    if (playerResponse && playerResponse.videoDetails?.videoId === videoId) {
       return getCaptionTracks(playerResponse).length > 0;
     }
     await new Promise((resolve) => { setTimeout(resolve, TRANSCRIPT_DOM_POLL_MS); });
@@ -989,14 +996,20 @@ function mountButton() {
   // 挂载后异步检测字幕可用性：若该视频无字幕轨道则移除按钮，避免误导用户
   const captionCheckId = ++latestCaptionCheckId;
   const mountUrl = window.location.href;
+  const currentVideoId = new URLSearchParams(window.location.search).get('v');
   (async () => {
     try {
-      const captionsAvailable = await hasCaptionTracks();
+      const captionsAvailable = await hasCaptionTracks(currentVideoId);
       // 竞态保护：若检测期间已切换视频或触发了新一轮挂载，则丢弃过期结果
       if (captionCheckId !== latestCaptionCheckId) return;
       if (mountUrl !== window.location.href) return;
       if (!captionsAvailable) {
         log('该视频没有可用的字幕轨道，移除已挂载的功能按钮。');
+        // FIFO 策略限制缓存大小，防止 SPA 长时间使用导致内存泄漏
+        if (noCaptionUrls.size >= NO_CAPTION_CACHE_LIMIT) {
+          const oldest = noCaptionUrls.values().next().value;
+          noCaptionUrls.delete(oldest);
+        }
         noCaptionUrls.add(mountUrl);
         removeButton();
       }
