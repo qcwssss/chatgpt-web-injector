@@ -170,6 +170,18 @@ function getTranscriptParamsFromPageScripts() {
   return '';
 }
 
+// SPA 导航后 <script> 标签可能不包含当前视频数据，以下函数从 HTML 字符串中提取
+function getInnertubeValueFromHtml(html, name) {
+  const pattern = new RegExp(`"${name}"\\s*:\\s*"([^"]+)"`);
+  const match = html.match(pattern);
+  return match ? match[1] : '';
+}
+
+function getTranscriptParamsFromHtml(html) {
+  const match = html.match(/"getTranscriptEndpoint"\s*:\s*\{"params"\s*:\s*"([^"]+)"/);
+  return match ? match[1] : '';
+}
+
 function normalizeTimestamp(timestamp) {
   const parts = timestamp.trim().split(':');
   if (parts.length >= 2) {
@@ -323,8 +335,16 @@ function isTranscriptPanelButton(button) {
   }
 
   const panel = button.closest('ytd-engagement-panel-section-list-renderer');
-  if (panel && !isElementVisible(panel)) {
-    return true;
+  if (panel) {
+    const targetId = panel.getAttribute('target-id');
+    // 绝对不能误过滤普通结构化描述容器（其 target-id 为 engagement-panel-structured-description）中的“显示字幕”按钮
+    if (targetId === 'engagement-panel-structured-description') {
+      return false;
+    }
+
+    if (!isElementVisible(panel)) {
+      return true;
+    }
   }
 
   return panelHasTranscriptContent(panel);
@@ -365,7 +385,28 @@ function findTranscriptButton({ allowHidden = false } = {}) {
 function expandDescription() {
   const container = document.querySelector('ytd-watch-metadata') || document.querySelector('ytd-video-secondary-info-renderer');
   if (!container) {
-    return;
+    return false;
+  }
+
+  // 优先尝试点击新版 YouTube 中的描述展开组件以激活结构化内容
+  const inlineExpander = container.querySelector('ytd-text-inline-expander');
+  if (inlineExpander) {
+    const expandBtn = inlineExpander.querySelector('#expand');
+    // 如果存在 #expand 且它没有被 hidden（表示还未展开）
+    if (expandBtn && !expandBtn.hasAttribute('hidden') && expandBtn.getAttribute('aria-hidden') !== 'true') {
+      inlineExpander.click();
+      expandBtn.click();
+      return true;
+    }
+  }
+
+  const divDesc = container.querySelector('div#description');
+  if (divDesc) {
+    const expandPattern = /\.\.\.(?:more|更多)|show more|展开|展開|顯示更多|显示更多/i;
+    if (expandPattern.test(divDesc.textContent || '')) {
+      divDesc.click();
+      return true;
+    }
   }
 
   const expandPattern = /\.\.\.(?:more|更多)|show more|展开|展開|顯示更多|显示更多/i;
@@ -509,12 +550,27 @@ async function fetchCurrentPlayerResponse() {
 }
 
 async function fetchInnertubeTranscript() {
-  const key = getInnertubeValue('INNERTUBE_API_KEY');
-  const clientVersion = getInnertubeValue('INNERTUBE_CLIENT_VERSION');
-  const visitorData = getInnertubeValue('VISITOR_DATA');
-  const hl = getInnertubeValue('HL') || document.documentElement.lang || 'en';
-  const gl = getInnertubeValue('GL') || 'US';
-  const params = getTranscriptParamsFromPageScripts();
+  let key = getInnertubeValue('INNERTUBE_API_KEY');
+  let clientVersion = getInnertubeValue('INNERTUBE_CLIENT_VERSION');
+  let visitorData = getInnertubeValue('VISITOR_DATA');
+  let hl = getInnertubeValue('HL') || document.documentElement.lang || 'en';
+  let gl = getInnertubeValue('GL') || 'US';
+  let params = getTranscriptParamsFromPageScripts();
+
+  // SPA 导航后 <script> 标签可能不包含当前视频的 params，从重新拉取的 HTML 中提取
+  if (!key || !clientVersion || !params) {
+    const html = await fetch(window.location.href, { credentials: 'include' })
+      .then((r) => r.ok ? r.text() : '')
+      .catch(() => '');
+    if (html) {
+      key = key || getInnertubeValueFromHtml(html, 'INNERTUBE_API_KEY');
+      clientVersion = clientVersion || getInnertubeValueFromHtml(html, 'INNERTUBE_CLIENT_VERSION');
+      visitorData = visitorData || getInnertubeValueFromHtml(html, 'VISITOR_DATA');
+      hl = hl || getInnertubeValueFromHtml(html, 'HL') || 'en';
+      gl = gl || getInnertubeValueFromHtml(html, 'GL') || 'US';
+      params = params || getTranscriptParamsFromHtml(html);
+    }
+  }
 
   if (!key || !clientVersion || !params) {
     throw new Error('innertube_missing_config');
