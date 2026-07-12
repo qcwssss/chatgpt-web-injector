@@ -16,14 +16,14 @@ The existing asynchronous `hasCaptionTracks(videoId)` check remains responsible 
 
 - When captions are confirmed, all three controls become visible together.
 - When captions are absent, all three controls are removed and the URL is added to the existing no-caption cache.
-- When detection returns `null` or throws, the controls are removed without adding the URL to the no-caption cache. An unknown result must not expose unusable controls, while a later YouTube event remains free to retry detection.
+- When detection returns `null` or throws, the controls remain mounted but hidden. This prevents unusable controls from appearing and prevents the player MutationObserver from causing a repeated remove/remount detection loop.
 - When navigation makes a result stale, that result does nothing; the navigation flow removes the old controls and mounts hidden controls for the new video.
 
 This preserves the current SPA race protection while changing the user-visible default from “visible until disproven” to “hidden until confirmed.”
 
 ## Failure Handling
 
-Caption detection already performs an HTML fallback request when page script data is stale. If all detection paths fail, it returns `null`, and the controls remain unavailable for that mount rather than being shown speculatively. A later YouTube navigation/data-update event may trigger a fresh mount attempt.
+Caption detection already performs an HTML fallback request when page script data is stale. If all detection paths fail, it returns `null`, and the controls remain hidden rather than being shown speculatively. Navigation to another video removes the hidden controls through the existing navigation flow and starts a fresh check for the new URL.
 
 ## Tests
 
@@ -32,6 +32,6 @@ DOM-level regression tests will verify:
 1. Controls are hidden immediately after mounting while caption detection is pending.
 2. Controls become visible only after captions are confirmed.
 3. Controls are removed when the current video has no caption tracks.
-4. A stale result from a previous SPA navigation cannot reveal controls on the new video.
+4. Controls remain hidden when caption availability cannot be determined.
 
 The changed JavaScript file will receive a syntax check, and the full existing test suite will run after implementation.
